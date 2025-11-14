@@ -23,7 +23,8 @@ const profileStorage = new CloudinaryStorage({
     public_id: (req, file) => {
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
-      return `profile_${req.userId}_${timestamp}_${randomString}`;
+      const userId = req.userId || "guest"; // fallback added
+      return `profile_${userId}_${timestamp}_${randomString}`;
     }
   },
 });
@@ -41,7 +42,8 @@ const backgroundStorage = new CloudinaryStorage({
     public_id: (req, file) => {
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
-      return `background_${req.userId}_${timestamp}_${randomString}`;
+      const userId = req.userId || "guest";
+      return `background_${userId}_${timestamp}_${randomString}`;
     }
   },
 });
@@ -68,7 +70,7 @@ const uploadBackground = multer({
   storage: backgroundStorage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit for backgrounds
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   }
 });
 
@@ -89,10 +91,8 @@ const deleteImage = async (publicId) => {
 // Helper function to extract public_id from Cloudinary URL
 const extractPublicId = (cloudinaryUrl) => {
   if (!cloudinaryUrl) return null;
-  
+
   try {
-    // Extract public_id from Cloudinary URL
-    // Example: https://res.cloudinary.com/dx2uhscno/image/upload/v1234567890/medicare/profiles/profile_123_456.jpg
     const matches = cloudinaryUrl.match(/\/upload\/(?:v\d+\/)?(.+?)\.[^.]+$/);
     return matches ? matches[1] : null;
   } catch (error) {
