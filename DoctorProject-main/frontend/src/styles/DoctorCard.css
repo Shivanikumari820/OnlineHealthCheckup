@@ -1,0 +1,411 @@
+/* Doctor Card Styles */
+.doctor-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.15), 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  width: 280px;
+  height: 350px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.doctor-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #ff6b6b 100%);
+  transform: scaleX(0);
+  transition: transform 0.4s ease;
+  transform-origin: left;
+}
+
+.doctor-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 50px rgba(102, 126, 234, 0.25), 0 10px 30px rgba(0, 0, 0, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.doctor-card:hover::before {
+  transform: scaleX(1);
+}
+
+/* Doctor Image with Ring */
+.doctor-image {
+  position: relative;
+  margin-bottom: 8px;
+  margin-top: 5px;
+}
+
+.doctor-image img {
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid transparent;
+  background: linear-gradient(white, white) padding-box,
+              linear-gradient(135deg, #667eea 0%, #764ba2 100%) border-box;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2), 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s ease;
+}
+
+.doctor-icon-placeholder {
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2), 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s ease;
+  position: relative;
+}
+
+.doctor-icon-placeholder::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  z-index: -1;
+}
+
+.doctor-icon-placeholder i {
+  font-size: 28px;
+  color: white;
+  z-index: 1;
+}
+
+.doctor-card:hover .doctor-image img,
+.doctor-card:hover .doctor-icon-placeholder {
+  transform: scale(1.1);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.3), 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Doctor Information */
+.doctor-info {
+  width: 100%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.doctor-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 3px 0;
+  line-height: 1.2;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.specialization {
+  font-size: 12px;
+  color: #667eea;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 3px 12px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 15px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.doctor-card:hover .specialization {
+  background: rgba(102, 126, 234, 0.15);
+  color: #5a67d8;
+  transform: scale(1.02);
+}
+
+/* Rating */
+.rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  background: rgba(248, 249, 255, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+}
+
+.doctor-card:hover .rating {
+  background: rgba(248, 249, 255, 1);
+  border-color: rgba(102, 126, 234, 0.2);
+  transform: scale(1.02);
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.star {
+  font-size: 12px;
+  transition: all 0.3s ease;
+  line-height: 1;
+}
+
+.star.filled {
+  color: #ff9800;
+  filter: drop-shadow(0 1px 2px rgba(255, 152, 0, 0.4));
+}
+
+.star.half {
+  color: #ff9800;
+  filter: drop-shadow(0 1px 2px rgba(255, 152, 0, 0.4));
+}
+
+.star.empty {
+  color: #e0e6ed;
+}
+
+.rating-text {
+  font-size: 12px;
+  color: #2c3e50;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* Doctor Details */
+.doctor-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #2c3e50;
+  font-weight: 500;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+  border-radius: 15px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.detail-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.doctor-card:hover .detail-item::before {
+  left: 100%;
+}
+
+.detail-icon {
+  font-size: 12px;
+  color: #667eea;
+  width: 12px;
+  text-align: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.detail-item span {
+  flex-grow: 1;
+  font-weight: 600;
+}
+
+.doctor-card:hover .detail-item {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-color: rgba(102, 126, 234, 0.3);
+  transform: translateX(3px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.doctor-card:hover .detail-icon {
+  color: #5a67d8;
+  transform: scale(1.1);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .doctor-card {
+    width: 260px;
+    height: 300px;
+    padding: 18px;
+  }
+  
+  .doctor-image img,
+  .doctor-icon-placeholder {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .doctor-icon-placeholder i {
+    font-size: 26px;
+  }
+  
+  .doctor-name {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .doctor-card {
+    width: 240px;
+    height: 280px;
+    padding: 16px;
+  }
+  
+  .doctor-image img,
+  .doctor-icon-placeholder {
+    width: 65px;
+    height: 65px;
+  }
+  
+  .doctor-icon-placeholder i {
+    font-size: 24px;
+  }
+  
+  .doctor-name {
+    font-size: 14px;
+  }
+  
+  .specialization {
+    font-size: 11px;
+  }
+  
+  .detail-item {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+  
+  .detail-icon {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .doctor-card {
+    width: 220px;
+    height: 260px;
+    padding: 14px;
+  }
+  
+  .doctor-image {
+    margin-bottom: 6px;
+  }
+  
+  .doctor-image img,
+  .doctor-icon-placeholder {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .doctor-icon-placeholder i {
+    font-size: 22px;
+  }
+  
+  .doctor-name {
+    font-size: 13px;
+  }
+  
+  .rating {
+    margin-bottom: 6px;
+  }
+  
+  .doctor-details {
+    gap: 5px;
+  }
+}
+
+/* Grid Layout Support */
+@media (min-width: 1200px) {
+  .doctor-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    justify-items: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .doctor-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+    justify-items: center;
+  }
+}
+
+@media (max-width: 767px) {
+  .doctor-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+    justify-items: center;
+  }
+}
+
+/* Animation for when cards load */
+.doctor-card {
+  animation: cardSlideUp 0.5s ease-out;
+}
+
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Focus states for accessibility */
+.doctor-card:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+}
+
+.doctor-card:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Active state */
+.doctor-card:active {
+  transform: translateY(-5px) scale(0.98);
+  transition: transform 0.1s ease;
+}
