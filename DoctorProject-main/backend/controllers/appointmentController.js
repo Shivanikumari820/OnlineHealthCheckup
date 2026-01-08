@@ -1,4 +1,4 @@
-// controllers/appointmentController.js - FIXED VERSION
+// controllers/appointmentController.js - UPDATED with payment integration
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const mongoose = require('mongoose');
@@ -12,67 +12,45 @@ const validateAppointmentDate = (date) => {
   appointmentDate.setHours(0, 0, 0, 0);
   
   const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 90); // Allow booking up to 90 days in advance
+  maxDate.setDate(maxDate.getDate() + 90);
   maxDate.setHours(0, 0, 0, 0);
   
   return appointmentDate >= today && appointmentDate <= maxDate;
 };
 
-// FIXED: Helper function to check if appointment date falls on available day
+// Helper function to check if appointment date falls on available day
 const isDateAvailableForLocation = (appointmentDate, location, doctor = null) => {
   try {
-    // Get day name in multiple formats to handle different data structures
     const dayNames = {
       full: appointmentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(),
       short: appointmentDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(),
-      index: appointmentDate.getDay() // 0=Sunday, 1=Monday, etc.
+      index: appointmentDate.getDay()
     };
 
-    console.log('Checking availability for:', dayNames);
-
-    // First, try to find slots in the practice location
     if (location && location.availableSlots && Array.isArray(location.availableSlots)) {
-      console.log('Checking location availableSlots:', location.availableSlots);
-      
       const availableSlot = location.availableSlots.find(slot => {
         if (!slot || !slot.isActive) return false;
-        
         const slotDay = slot.day ? slot.day.toLowerCase() : '';
-        console.log('Comparing slot day:', slotDay, 'with:', dayNames);
-        
-        return slotDay === dayNames.full || 
-               slotDay === dayNames.short || 
-               slotDay === dayNames.full.substring(0, 3); // mon, tue, etc.
-      });
-      
-      if (availableSlot) {
-        console.log('Found available slot in location:', availableSlot);
-        return availableSlot;
-      }
-    }
-
-    // Fallback: Check doctor's legacy availableSlots if location doesn't have any
-    if (doctor && doctor.availableSlots && Array.isArray(doctor.availableSlots)) {
-      console.log('Checking doctor availableSlots:', doctor.availableSlots);
-      
-      const availableSlot = doctor.availableSlots.find(slot => {
-        if (!slot || !slot.isActive) return false;
-        
-        const slotDay = slot.day ? slot.day.toLowerCase() : '';
-        console.log('Comparing doctor slot day:', slotDay, 'with:', dayNames);
-        
         return slotDay === dayNames.full || 
                slotDay === dayNames.short || 
                slotDay === dayNames.full.substring(0, 3);
       });
       
-      if (availableSlot) {
-        console.log('Found available slot in doctor slots:', availableSlot);
-        return availableSlot;
-      }
+      if (availableSlot) return availableSlot;
+    }
+
+    if (doctor && doctor.availableSlots && Array.isArray(doctor.availableSlots)) {
+      const availableSlot = doctor.availableSlots.find(slot => {
+        if (!slot || !slot.isActive) return false;
+        const slotDay = slot.day ? slot.day.toLowerCase() : '';
+        return slotDay === dayNames.full || 
+               slotDay === dayNames.short || 
+               slotDay === dayNames.full.substring(0, 3);
+      });
+      
+      if (availableSlot) return availableSlot;
     }
     
-    console.log('No available slot found for this day');
     return null;
   } catch (error) {
     console.error('Error in isDateAvailableForLocation:', error);
@@ -87,20 +65,10 @@ const getDoctorAvailability = async (req, res) => {
     const { doctorId } = req.params;
     const { date } = req.query;
     
-    console.log('Getting availability for doctor:', doctorId, 'date:', date);
-    
-    // Validate inputs
-    if (!doctorId) {
+    if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId)) {
       return res.status(400).json({
         success: false,
-        message: 'Doctor ID is required'
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid doctor ID format'
+        message: 'Invalid doctor ID'
       });
     }
     
@@ -111,7 +79,6 @@ const getDoctorAvailability = async (req, res) => {
       });
     }
 
-    // Validate date format
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
       return res.status(400).json({
@@ -127,14 +94,11 @@ const getDoctorAvailability = async (req, res) => {
       });
     }
     
-    // Get doctor with practice locations
     const doctor = await User.findOne({
       _id: doctorId,
       userType: 'doctor',
       isActive: true
     }).select('-password').lean();
-    
-    console.log('Found doctor:', doctor ? doctor.name : 'Not found');
     
     if (!doctor) {
       return res.status(404).json({
@@ -146,29 +110,15 @@ const getDoctorAvailability = async (req, res) => {
     const appointmentDate = new Date(date);
     const availability = [];
     
-    console.log('Doctor practiceLocations:', doctor.practiceLocations);
-    console.log('Doctor legacy availableSlots:', doctor.availableSlots);
-    
-    // FIXED: Handle both cases - with and without practice locations
     if (doctor.practiceLocations && Array.isArray(doctor.practiceLocations) && doctor.practiceLocations.length > 0) {
-      console.log('Checking', doctor.practiceLocations.length, 'practice locations');
-      
-      // Check each practice location
       for (const location of doctor.practiceLocations) {
         try {
-          console.log('Checking location:', location.name, 'isActive:', location.isActive);
-          
-          if (!location.isActive) {
-            console.log('Location inactive, skipping');
-            continue;
-          }
+          if (!location.isActive) continue;
           
           const availableSlot = isDateAvailableForLocation(appointmentDate, location, doctor);
-          console.log('Available slot for location:', location.name, ':', availableSlot);
           
           if (availableSlot) {
-            // Check current bookings for this location and date
-            const patientsPerDay = location.patientsPerDay || 10; // Default to 10 if not set
+            const patientsPerDay = location.patientsPerDay || 10;
             
             const hasCapacity = await Appointment.checkLocationCapacity(
               doctorId,
@@ -177,17 +127,13 @@ const getDoctorAvailability = async (req, res) => {
               patientsPerDay
             );
             
-            console.log('Has capacity for location', location.name, ':', hasCapacity);
-            
             if (hasCapacity) {
-              // Get current queue number for this location
               const nextQueueNumber = await Appointment.getNextQueueNumber(
                 doctorId,
                 location._id,
                 appointmentDate
               );
               
-              // Get current bookings count
               const startOfDay = new Date(appointmentDate);
               startOfDay.setHours(0, 0, 0, 0);
               const endOfDay = new Date(appointmentDate);
@@ -197,11 +143,12 @@ const getDoctorAvailability = async (req, res) => {
                 doctorId,
                 practiceLocationId: location._id,
                 appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+                paymentStatus: 'paid',
                 status: { $nin: ['cancelled', 'no-show'] },
                 isActive: true
               });
               
-              const availabilitySlot = {
+              availability.push({
                 locationId: location._id,
                 locationName: location.name || 'Unnamed Location',
                 address: location.address || {},
@@ -215,10 +162,7 @@ const getDoctorAvailability = async (req, res) => {
                 nextQueueNumber,
                 currentBookings,
                 estimatedWaitTime: `${Math.max(0, (nextQueueNumber - 1) * 15)} minutes`
-              };
-              
-              console.log('Adding availability slot:', availabilitySlot);
-              availability.push(availabilitySlot);
+              });
             }
           }
         } catch (locationError) {
@@ -227,19 +171,12 @@ const getDoctorAvailability = async (req, res) => {
         }
       }
     } else {
-      // FIXED: Fallback to legacy system - create a default location using doctor's availableSlots
-      console.log('No practice locations found, using legacy system');
-      
       const availableSlot = isDateAvailableForLocation(appointmentDate, null, doctor);
-      console.log('Available slot from legacy system:', availableSlot);
       
       if (availableSlot) {
-        // Create a virtual location using doctor's information
-        const virtualLocationId = new mongoose.Types.ObjectId(); // Generate a temp ID
-        const patientsPerDay = 10; // Default capacity
+        const virtualLocationId = new mongoose.Types.ObjectId();
+        const patientsPerDay = 10;
         
-        // For legacy system, we don't have per-location booking tracking
-        // So we'll check total appointments for this doctor on this date
         const startOfDay = new Date(appointmentDate);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(appointmentDate);
@@ -248,16 +185,15 @@ const getDoctorAvailability = async (req, res) => {
         const currentBookings = await Appointment.countDocuments({
           doctorId,
           appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+          paymentStatus: 'paid',
           status: { $nin: ['cancelled', 'no-show'] },
           isActive: true
         });
         
-        console.log('Current bookings for legacy system:', currentBookings);
-        
         if (currentBookings < patientsPerDay) {
           const nextQueueNumber = currentBookings + 1;
           
-          const availabilitySlot = {
+          availability.push({
             locationId: virtualLocationId,
             locationName: `${doctor.name}'s Clinic`,
             address: doctor.address || {},
@@ -271,15 +207,10 @@ const getDoctorAvailability = async (req, res) => {
             nextQueueNumber,
             currentBookings,
             estimatedWaitTime: `${Math.max(0, (nextQueueNumber - 1) * 15)} minutes`
-          };
-          
-          console.log('Adding legacy availability slot:', availabilitySlot);
-          availability.push(availabilitySlot);
+          });
         }
       }
     }
-    
-    console.log('Final availability count:', availability.length);
     
     res.json({
       success: true,
@@ -302,7 +233,8 @@ const getDoctorAvailability = async (req, res) => {
   }
 };
 
-// FIXED: Book appointment function with better location handling
+// @desc    Create appointment (pending payment)
+// @access  Private
 const bookAppointment = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -314,9 +246,6 @@ const bookAppointment = async (req, res) => {
     } = req.body;
     const patientId = req.userId;
     
-    console.log('Booking appointment:', { doctorId, appointmentDate, practiceLocationId, patientId });
-    
-    // Validate required fields
     if (!appointmentDate || !practiceLocationId) {
       return res.status(400).json({
         success: false,
@@ -324,7 +253,6 @@ const bookAppointment = async (req, res) => {
       });
     }
 
-    // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(doctorId)) {
       return res.status(400).json({
         success: false,
@@ -332,7 +260,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Validate appointment date
     if (!validateAppointmentDate(appointmentDate)) {
       return res.status(400).json({
         success: false,
@@ -340,7 +267,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Get patient details
     const patient = await User.findById(patientId);
     if (!patient) {
       return res.status(404).json({
@@ -349,7 +275,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Get doctor and practice location
     const doctor = await User.findOne({
       _id: doctorId,
       userType: 'doctor',
@@ -370,7 +295,6 @@ const bookAppointment = async (req, res) => {
     let consultationFee = doctor.consultationFee || 500;
     let patientsPerDay = 10;
     
-    // FIXED: Handle both practice locations and legacy system
     if (doctor.practiceLocations && doctor.practiceLocations.length > 0) {
       practiceLocation = doctor.practiceLocations.id(practiceLocationId);
       if (!practiceLocation || !practiceLocation.isActive) {
@@ -384,12 +308,10 @@ const bookAppointment = async (req, res) => {
       consultationFee = practiceLocation.consultationFee || doctor.consultationFee || 500;
       patientsPerDay = practiceLocation.patientsPerDay || 10;
     } else {
-      // Legacy system - use doctor's basic info
       locationName = `${doctor.name}'s Clinic`;
       locationAddress = doctor.address || {};
     }
     
-    // Check if the date is available
     const availableSlot = isDateAvailableForLocation(appointmentDateObj, practiceLocation, doctor);
     if (!availableSlot) {
       return res.status(400).json({
@@ -398,7 +320,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Check capacity
     let hasCapacity = false;
     if (practiceLocation) {
       hasCapacity = await Appointment.checkLocationCapacity(
@@ -408,7 +329,6 @@ const bookAppointment = async (req, res) => {
         patientsPerDay
       );
     } else {
-      // Legacy system - check total appointments for this doctor
       const startOfDay = new Date(appointmentDateObj);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(appointmentDateObj);
@@ -417,6 +337,7 @@ const bookAppointment = async (req, res) => {
       const currentBookings = await Appointment.countDocuments({
         doctorId,
         appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+        paymentStatus: 'paid',
         status: { $nin: ['cancelled', 'no-show'] },
         isActive: true
       });
@@ -431,7 +352,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Check if patient already has an appointment with this doctor on the same date
     const startOfDay = new Date(appointmentDateObj);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(appointmentDateObj);
@@ -441,6 +361,7 @@ const bookAppointment = async (req, res) => {
       patientId,
       doctorId,
       appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+      paymentStatus: { $in: ['paid', 'pending'] },
       status: { $nin: ['cancelled', 'no-show'] },
       isActive: true
     });
@@ -452,7 +373,6 @@ const bookAppointment = async (req, res) => {
       });
     }
     
-    // Get next queue number
     let queueNumber = 1;
     if (practiceLocation) {
       queueNumber = await Appointment.getNextQueueNumber(
@@ -461,17 +381,17 @@ const bookAppointment = async (req, res) => {
         appointmentDateObj
       );
     } else {
-      // Legacy system
       const currentBookings = await Appointment.countDocuments({
         doctorId,
         appointmentDate: { $gte: startOfDay, $lte: endOfDay },
+        paymentStatus: 'paid',
         status: { $nin: ['cancelled', 'no-show'] },
         isActive: true
       });
       queueNumber = currentBookings + 1;
     }
     
-    // Create appointment
+    // Create appointment with pending payment status
     const appointment = new Appointment({
       patientId,
       patientName: patient.name,
@@ -490,19 +410,16 @@ const bookAppointment = async (req, res) => {
       queueNumber,
       consultationFee,
       symptoms: symptoms ? symptoms.trim() : '',
-      notes: notes ? notes.trim() : ''
+      notes: notes ? notes.trim() : '',
+      status: 'pending-payment',
+      paymentStatus: 'pending'
     });
     
     await appointment.save();
     
-    // Update doctor's total appointments count
-    await User.findByIdAndUpdate(doctorId, {
-      $inc: { totalAppointments: 1 }
-    });
-    
     res.status(201).json({
       success: true,
-      message: 'Appointment booked successfully',
+      message: 'Appointment created. Please complete payment to confirm.',
       data: {
         appointmentId: appointment._id,
         appointmentDate: appointment.formattedDate,
@@ -511,6 +428,7 @@ const bookAppointment = async (req, res) => {
         locationName: appointment.locationName,
         consultationFee: appointment.consultationFee,
         status: appointment.status,
+        paymentStatus: appointment.paymentStatus,
         estimatedWaitTime: `${Math.max(0, (queueNumber - 1) * 15)} minutes`
       }
     });
@@ -578,7 +496,6 @@ const getDoctorAppointments = async (req, res) => {
     const doctorId = req.userId;
     const { date, status, locationId, page = 1, limit = 20 } = req.query;
     
-    // Verify user is a doctor
     const doctor = await User.findOne({ _id: doctorId, userType: 'doctor' });
     if (!doctor) {
       return res.status(403).json({
@@ -666,7 +583,6 @@ const getAppointmentById = async (req, res) => {
       });
     }
     
-    // Check if user has permission to view this appointment
     if (appointment.patientId.toString() !== userId && appointment.doctorId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -714,7 +630,6 @@ const cancelAppointment = async (req, res) => {
       });
     }
     
-    // Check if user has permission to cancel this appointment
     const isPatient = appointment.patientId.toString() === userId;
     const isDoctor = appointment.doctorId.toString() === userId;
     
@@ -725,7 +640,6 @@ const cancelAppointment = async (req, res) => {
       });
     }
     
-    // Check if appointment can be cancelled (not in the past or already completed)
     if (appointment.status === 'completed' || appointment.status === 'cancelled') {
       return res.status(400).json({
         success: false,
@@ -733,7 +647,6 @@ const cancelAppointment = async (req, res) => {
       });
     }
     
-    // Update appointment status
     appointment.status = 'cancelled';
     appointment.cancellationReason = cancellationReason || '';
     appointment.cancelledAt = new Date();
@@ -775,7 +688,6 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
     
-    // Verify user is a doctor
     const doctor = await User.findOne({ _id: doctorId, userType: 'doctor' });
     if (!doctor) {
       return res.status(403).json({
@@ -797,7 +709,6 @@ const updateAppointmentStatus = async (req, res) => {
       });
     }
     
-    // Validate status transition
     const validStatuses = ['confirmed', 'in-progress', 'completed', 'no-show'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({

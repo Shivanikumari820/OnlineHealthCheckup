@@ -1,4 +1,4 @@
-// routes/appointmentRoutes.js - Clean appointment routes
+// routes/appointmentRoutes.js - Complete and clean
 const express = require('express');
 const auth = require('../middleware/auth');
 const {
@@ -13,15 +13,29 @@ const {
 
 const router = express.Router();
 
-// Public routes
+// ==================== PUBLIC ROUTES ====================
+// Get doctor availability (no auth required)
 router.get('/doctors/:doctorId/availability', getDoctorAvailability);
 
-// Protected routes (require authentication)
+// ==================== PROTECTED ROUTES (Patient) ====================
+// Book appointment - creates appointment with pending-payment status
 router.post('/doctors/:doctorId/book', auth, bookAppointment);
+
+// Get patient's appointments
 router.get('/patient/appointments', auth, getPatientAppointments);
+
+// ==================== PROTECTED ROUTES (Doctor) ====================
+// Get doctor's appointments
 router.get('/doctor/appointments', auth, getDoctorAppointments);
-router.get('/:appointmentId', auth, getAppointmentById);
-router.put('/:appointmentId/cancel', auth, cancelAppointment);
+
+// Update appointment status (doctors only)
 router.put('/:appointmentId/status', auth, updateAppointmentStatus);
+
+// ==================== PROTECTED ROUTES (Both) ====================
+// Get specific appointment by ID
+router.get('/:appointmentId', auth, getAppointmentById);
+
+// Cancel appointment
+router.put('/:appointmentId/cancel', auth, cancelAppointment);
 
 module.exports = router;

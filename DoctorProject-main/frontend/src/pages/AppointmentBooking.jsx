@@ -18,8 +18,10 @@ const AppointmentBooking = () => {
   const [loading, setLoading] = useState(true);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [appointmentId, setAppointmentId] = useState(null);
 
   // Helper function to check if URL is a Cloudinary URL
   const isCloudinaryUrl = (url) => {
@@ -29,13 +31,9 @@ const AppointmentBooking = () => {
   // Helper function to get correct image URL
   const getImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
-    
-    // If it's a Cloudinary URL, return as-is
     if (isCloudinaryUrl(imageUrl)) {
       return imageUrl;
     }
-    
-    // If it's a relative path (legacy), prepend backend URL
     return `${backendUrl}${imageUrl}`;
   };
 
@@ -50,6 +48,17 @@ const AppointmentBooking = () => {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 90);
     return maxDate.toISOString().split('T')[0];
+  };
+
+  // Load Razorpay script
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
   useEffect(() => {
@@ -148,6 +157,8 @@ const AppointmentBooking = () => {
 
     try {
       const token = localStorage.getItem('token');
+      
+      // Step 1: Create appointment
       const response = await fetch(`${backendUrl}/api/appointments/doctors/${doctorId}/book`, {
         method: 'POST',
         headers: {
@@ -165,11 +176,10 @@ const AppointmentBooking = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMessage('Appointment booked successfully!');
-        // Optionally redirect to appointments page
-        setTimeout(() => {
-          navigate('/appointments');
-        }, 2000);
+        setAppointmentId(data.data.appointmentId);
+        
+        // Step 2: Initiate payment
+        await initiatePayment(data.data.appointmentId);
       } else {
         setError(data.message || 'Failed to book appointment');
       }
@@ -178,6 +188,109 @@ const AppointmentBooking = () => {
       console.error('Booking error:', error);
     } finally {
       setBookingLoading(false);
+    }
+  };
+
+  const initiatePayment = async (appointmentId) => {
+    setPaymentLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Load Razorpay script
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        setError('Failed to load payment gateway. Please try again.');
+        return;
+      }
+
+      // Create payment order
+      const orderResponse = await fetch(`${backendUrl}/api/payments/create-order`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ appointmentId })
+      });
+
+      const orderData = await orderResponse.json();
+
+      if (!orderResponse.ok) {
+        setError(orderData.message || 'Failed to create payment order');
+        return;
+      }
+
+      // Configure Razorpay options
+      const options = {
+        key: orderData.data.key,
+        amount: orderData.data.amount,
+        currency: orderData.data.currency,
+        name: 'MediCare',
+        description: `Consultation with Dr. ${doctor.name}`,
+        order_id: orderData.data.orderId,
+        handler: async function (response) {
+          await verifyPayment({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            appointmentId: appointmentId
+          });
+        },
+        prefill: {
+          name: currentUser.name,
+          email: currentUser.email,
+          contact: currentUser.phone || ''
+        },
+        theme: {
+          color: '#3399cc'
+        },
+        modal: {
+          ondismiss: function() {
+            setPaymentLoading(false);
+            setError('Payment cancelled. Your appointment is on hold.');
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+
+    } catch (error) {
+      setError('Payment initiation failed. Please try again.');
+      console.error('Payment error:', error);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const verifyPayment = async (paymentData) => {
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${backendUrl}/api/payments/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage('Payment successful! Your appointment is confirmed.');
+        setTimeout(() => {
+          navigate('/appointments');
+        }, 2000);
+      } else {
+        setError(data.message || 'Payment verification failed');
+      }
+    } catch (error) {
+      setError('Payment verification failed. Please contact support.');
+      console.error('Verification error:', error);
     }
   };
 
@@ -244,7 +357,7 @@ const AppointmentBooking = () => {
         </div>
       </div>
 
-      {/* Doctor Info Card - FIXED */}
+      {/* Doctor Info Card */}
       <div className="doctor-info-card">
         <div className="doctor-info-content">
           <div className="doctor-avatar">
@@ -418,18 +531,20 @@ const AppointmentBooking = () => {
 
             <button
               onClick={handleBookAppointment}
-              disabled={bookingLoading || !currentUser}
+              disabled={bookingLoading || paymentLoading || !currentUser}
               className="confirm-booking-btn"
             >
-              {bookingLoading ? (
+              {bookingLoading || paymentLoading ? (
                 <span className="btn-loading">
                   <i className="fas fa-spinner fa-spin"></i>
-                  Booking...
+                  {bookingLoading ? 'Creating Appointment...' : 'Processing Payment...'}
                 </span>
               ) : !currentUser ? (
                 'Please Login to Book'
               ) : (
-                'Confirm Booking'
+                <>
+                  <i className="fas fa-lock"></i> Proceed to Payment
+                </>
               )}
             </button>
 
@@ -448,6 +563,11 @@ const AppointmentBooking = () => {
                 </button> to book appointments
               </p>
             )}
+
+            <div className="payment-security-note">
+              <i className="fas fa-shield-alt"></i>
+              <p>Secure payment powered by Razorpay. Your payment information is encrypted and secure.</p>
+            </div>
           </div>
         )}
       </div>

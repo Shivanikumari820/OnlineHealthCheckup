@@ -185,3 +185,6 @@ appointmentSchema.statics.checkLocationCapacity = async function(doctorId, pract
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 
 module.exports = Appointment;
+
+
+

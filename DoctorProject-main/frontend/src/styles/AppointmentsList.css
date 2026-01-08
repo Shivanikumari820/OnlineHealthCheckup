@@ -9,7 +9,7 @@
   position: relative;
   overflow-x: hidden;
 }
-
+      
 .appointments-page-wrapper::before {
   content: '';
   position: absolute;
@@ -19,7 +19,7 @@
   height: 100%;
   z-index: 0;
 }
-
+    
 /* Loading Spinner */
 .appointments-loading-container {
   display: flex;
