@@ -1,4 +1,4 @@
 // utils/BackendURL.jsx
-const backendUrl = "https://onlinehealthcheckups.onrender.com";
+const backendUrl = "https://onlinehealthcheckup-1.onrender.com";
 
 export default backendUrl;
