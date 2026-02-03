@@ -1,89 +1,95 @@
-// contexts/SocketContext.js
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import io from 'socket.io-client';
-import backendUrl from '../utils/BackendURL';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+} from "react";
+import { io } from "socket.io-client";
+import backendUrl from "../utils/BackendURL";
 
-const SocketContext = createContext();
+const SocketContext = createContext(null);
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
+    throw new Error("useSocket must be used within a SocketProvider");
   }
   return context;
 };
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
-  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      // Create socket connection
-      const socketInstance = io(backendUrl, {
-        autoConnect: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-      socketInstance.on('connect', () => {
-        console.log('Connected to socket server');
-        setIsConnected(true);
-        
-        // Get user info and join
-        try {
-          const userStr = localStorage.getItem('user');
-          if (userStr) {
-            const user = JSON.parse(userStr);
-            socketInstance.emit('join', user.id);
-          }
-        } catch (error) {
-          console.error('Error parsing user from localStorage:', error);
+    // create socket instance only once
+    socketRef.current = io(backendUrl, {
+      transports: ["websocket"],
+      auth: { token },            // pass token to backend
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    const socket = socketRef.current;
+
+    socket.on("connect", () => {
+      setIsConnected(true);
+
+      try {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          socket.emit("join", user.id);
         }
+      } catch (err) {
+        console.error("User parse error:", err);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      setIsConnected(false);
+    });
+
+    socket.on("userOnline", (userId) => {
+      setOnlineUsers((prev) => new Set([...prev, userId]));
+    });
+
+    socket.on("userOffline", (userId) => {
+      setOnlineUsers((prev) => {
+        const updated = new Set(prev);
+        updated.delete(userId);
+        return updated;
       });
+    });
 
-      socketInstance.on('disconnect', () => {
-        console.log('Disconnected from socket server');
-        setIsConnected(false);
-      });
+    socket.on("connect_error", (err) => {
+      console.error("Socket connection error:", err.message);
+      setIsConnected(false);
+    });
 
-      socketInstance.on('userOnline', (userId) => {
-        setOnlineUsers(prev => new Set([...prev, userId]));
-      });
-
-      socketInstance.on('userOffline', (userId) => {
-        setOnlineUsers(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(userId);
-          return newSet;
-        });
-      });
-
-      socketInstance.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        setIsConnected(false);
-      });
-
-      setSocket(socketInstance);
-
-      return () => {
-        socketInstance.disconnect();
-      };
-    }
+    // ✅ clean, unconditional cleanup
+    return () => {
+      if (socket) {
+        socket.off();      // remove all listeners
+        socket.disconnect();
+      }
+    };
   }, []);
 
-  const value = {
-    socket,
-    onlineUsers,
-    isConnected
-  };
-
   return (
-    <SocketContext.Provider value={value}>
+    <SocketContext.Provider
+      value={{
+        socket: socketRef.current,
+        isConnected,
+        onlineUsers,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );
