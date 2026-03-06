@@ -7,7 +7,7 @@ import '../styles/Chat.css';
 
 const Chat = () => {
   const { userId } = useParams();                          
-
+          
   const navigate = useNavigate();
   const { socket, onlineUsers } = useSocket();
   
