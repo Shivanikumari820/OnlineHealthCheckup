@@ -295,22 +295,32 @@ const bookAppointment = async (req, res) => {
     let consultationFee = doctor.consultationFee || 500;
     let patientsPerDay = 10;
     
-    if (doctor.practiceLocations && doctor.practiceLocations.length > 0) {
-      practiceLocation = doctor.practiceLocations.id(practiceLocationId);
-      if (!practiceLocation || !practiceLocation.isActive) {
-        return res.status(404).json({
-          success: false,
-          message: 'Practice location not found or inactive'
-        });
-      }
-      locationName = practiceLocation.name || 'Unnamed Location';
-      locationAddress = practiceLocation.address || {};
-      consultationFee = practiceLocation.consultationFee || doctor.consultationFee || 500;
-      patientsPerDay = practiceLocation.patientsPerDay || 10;
-    } else {
-      locationName = `${doctor.name}'s Clinic`;
-      locationAddress = doctor.address || {};
-    }
+   
+
+if (doctor.practiceLocations && doctor.practiceLocations.length > 0) {
+
+  practiceLocation = doctor.practiceLocations.find(
+    loc => loc._id.toString() === practiceLocationId
+  );
+
+  if (!practiceLocation || !practiceLocation.isActive) {
+    return res.status(404).json({
+      success: false,
+      message: 'Practice location not found or inactive'
+    });
+  }
+
+  locationName = practiceLocation.name || 'Unnamed Location';
+  locationAddress = practiceLocation.address || {};
+  consultationFee = practiceLocation.consultationFee || doctor.consultationFee || 500;
+  patientsPerDay = practiceLocation.patientsPerDay || 10;
+
+} else {
+
+  locationName = `${doctor.name}'s Clinic`;
+  locationAddress = doctor.address || {};
+
+}
     
     const availableSlot = isDateAvailableForLocation(appointmentDateObj, practiceLocation, doctor);
     if (!availableSlot) {
