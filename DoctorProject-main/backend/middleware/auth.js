@@ -13,7 +13,7 @@ const auth = async (req, res, next) => {
         message: 'No token provided, authorization denied'
       });
     }
-
+    
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
       
