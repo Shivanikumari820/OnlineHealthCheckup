@@ -70,7 +70,7 @@ const Doctors = () => {
       newFilters.specialization = specialization;
       hasChanges = true;
     }
-
+    
     // Handle city parameter
     const city = searchParams.get('city');
     if (city && city !== filters.city) {
