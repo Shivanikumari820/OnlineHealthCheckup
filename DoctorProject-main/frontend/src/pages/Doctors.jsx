@@ -15,7 +15,7 @@ const Doctors = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [userLocationLoaded, setUserLocationLoaded] = useState(false);
-  
+   
   // Filter states
   const [filters, setFilters] = useState({
     specialization: '',

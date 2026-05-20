@@ -271,6 +271,8 @@ const bookAppointment = async (req, res) => {
     if (!patient) {
       return res.status(404).json({
         success: false,
+
+        
         message: 'Patient not found'
       });
     }
